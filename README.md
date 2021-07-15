@@ -12,5 +12,5 @@ The aim of this project is to re-build a previous critical-points calculator by 
 2. fieldData是个结构体，循环复制的时候会枚举每一个项
 
 待办
--[] points_data的处理
--[] findCriticalPoints测试
+-[ ] points_data的处理
+-[ ] findCriticalPoints测试
