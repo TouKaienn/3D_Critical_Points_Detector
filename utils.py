@@ -228,7 +228,6 @@ if __name__ == "__main__":
     start_time=time.time()
     cp= Critical_Points()
 
-    
     end_time=time.time()    
     print(f'time_consuming:{(end_time-start_time)/60}min')
 
