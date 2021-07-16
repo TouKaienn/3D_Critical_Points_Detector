@@ -6,9 +6,10 @@ def getVecLength3D(v:Vec3D):
     length=np.sqrt(v.x**2+v.y**2+v.z**2)
     return length
 
-def vectDot(v1:Vec3D,v2:Vec3D,default=False):#!这里改写了原来的方法，将default参数改为TRUE来使用原来的方法
+def vectDot(v1:Vec3D,v2:Vec3D,default=True):#!这里改写了原来的方法，将default参数改为TRUE来使用原来的方法
     if default:
         l3=np.sqrt((v1.x-v2.x)**2+(v1.y-v2.y)**2+(v1.z-v2.z)**2)
+        
         l1=getVecLength3D(v1)
         l2=getVecLength3D(v2)
         costheta=(l1*l1+l2*l2-l3*l3)/(2*l1*l2)
