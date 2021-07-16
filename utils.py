@@ -22,6 +22,7 @@ GREENE_DEGREE_THRESH = 0.00001
 GREENE_SCALE_THRESH = 0.0001
 ALLCRITICALPOINTS_NUM=300
 
+SMALL_DIST_BOUNDARY=4
 #########Some Struct or Ref##########
 
 
@@ -73,7 +74,6 @@ class Critical_Points():
         self.findCritpnts()
 
     def init_points_data(self,datasize):
-
 
         data=np.fromfile(self.data_file_path, dtype='<f')
         res=[Vec3D(0,0,0)]*datasize
@@ -163,18 +163,11 @@ class Critical_Points():
         a = np.arctan(np.sqrt(t))*4
         if(vectDot(v[0], vectCross(v[1], v[2])) < 0):
             a = -a
-        # print(a)
-        # if np.isnan(a):
-        #     a=0
 
         return a
 
     def locatePoint(self, v, pos, scale, retArray, retNum, poincateIndex):
-
-        # print(scale)
-
         if(scale <= GREENE_SCALE_THRESH):
-            # print(pos)
             self.criticalPoints[self.pntNum] = pos
             self.pntNum+= 1
             return True
@@ -202,7 +195,51 @@ class Critical_Points():
                     self.poincateIndex[self.pntNum-1]=1 if (degree>GREENE_DEGREE_THRESH) else -1
                     return True
         return False
+################################################################################################################
+    def getCritpntType3D(self,pos,poincateIndex,timeID=0):
+        critical_type=None
+        tempPos=Vec3D(pos.x,pos.y,pos.z)
+        #TODO:computeEigenValue3D
+        pass
 
+    def computeEigenValue3D(self,pos,timeID=0):
+        jMatrix=[[Vec3D() for i in range(3)] for j in range(125)] #!注意这里维度的处理
+        count=0
+        #TODO2:computeJacobianMatrix3D
+
+    def computeJacobianMatrix3D(self,pos,timeID=0):
+        intx,inty,intz=int(pos.x),int(pos.y),int(pos.z)
+        fracx,fracy,fracz=pos.x-intx,pos.y-inty,pos.z-intz
+        v=[Vec3D()]*8
+        p=timeID*self.sizeCube+intz*self.sizeSlice+inty*self.vfwidth+intx
+        v[0]=self.points_data[p]
+        v[1]=self.points_data[p+1]
+        v[2]=self.points_data[p+self.vfwidth]
+        v[3]=self.points_data[p+1+self.vfwidth]
+        v[4]=self.points_data[p+self.sizeSlice]
+        v[5]=self.points_data[p+1+self.sizeSlice]
+        v[6]=self.points_data[p+self.vfwidth+self.sizeSlice]
+        v[7]=self.points_data[p+1+self.vfwidth+self.sizeSlice]
+
+        return self.interpolateJacobianMatrix3D(v,Vec3D(fracx,fracy,fracz))
+        #TODO3: interpolateJacobianMatrix3D
+
+    def interpolateJacobianMatrix3D(self,v,pos):
+        retJacob=Vec3D()#!: resJacob可能是一个公共变量
+
+
+    def classifyCripnts(self,timeID=0):#TODO:ClassifyPoint书写
+        
+        repFocusCount,repSpiralSaddleCount,reNodeCount,attrNodeCount,repSaddleCount=0,0,0,0,0
+        for i in range(self.pntNum):
+            pos1=Vec3D(self.criticalPoints[i].x,self.criticalPoints[i].y,self.criticalPoints[i].z)
+            
+            if ((abs(pos1.x-self.vfwidth)<SMALL_DIST_BOUNDARY) or (abs(pos1.x)<SMALL_DIST_BOUNDARY) or (abs(pos1.y)<SMALL_DIST_BOUNDARY) or (abs(pos1.y-self.vfheight)<SMALL_DIST_BOUNDARY) or (abs(pos1.z)<SMALL_DIST_BOUNDARY) or (abs(pos1.z-self.vfdepth)<SMALL_DIST_BOUNDARY)):
+                continue
+
+            critical_type=self.getCritpntType3D()#TODO:getCriticalType3D
+            
+##################################################################################################################
     def _load_path(self, data_root_path='.\\Critical-Points-Utils\\vectordata'):  # !注意更改vec文件的目录
         """[summary]
         读取vectordata的数据
@@ -222,14 +259,12 @@ def save_cp(cp,file_name='cp.pkl'):
     with open(file_name,'wb') as f:
         pickle.dump(cp,f)
     
-
-
 if __name__ == "__main__":
     start_time=time.time()
     cp= Critical_Points()
-
     end_time=time.time()    
     print(f'time_consuming:{(end_time-start_time)/60}min')
+
 
 
 

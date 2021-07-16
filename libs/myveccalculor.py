@@ -37,7 +37,7 @@ def addVect(vec1:Vec3D,vec2:Vec3D):
 if __name__ == "__main__":
     testV3D1=Vec3D(3,4,5)
     testV3D2=Vec3D(1,1,1)
+    jMatrix=[[0 for i in range(3)] for j in range(125)]
     
-    c=[Vec3D()]*27
-    print(len(c))
+    
 
