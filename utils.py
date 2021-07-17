@@ -8,7 +8,7 @@ import time
 import pickle
 from tqdm import tqdm
 import warnings
-
+import scipy.linalg
 #####################################
 #  * @Description: critical points detection and classification module
 #  * @Author: Dai-ge
@@ -30,10 +30,10 @@ SOURCE=0x00000010
 SINK=0x00000011
 ATTRACT_SADDLE=0x00000012
 REPEL_SADDLE=0x00000013
-ATTRACT_FOCUS=0x00000001
-REPEL_FOCUS=0x00000002
-ATTRACT_NODE=0x00000003
-REPEL_NODE=0x00000004
+ATTRACT_FOCUS=0x00000001#1
+REPEL_FOCUS=0x00000002#2
+ATTRACT_NODE=0x00000003#3
+REPEL_NODE=0x00000004#4
 ATTRACT_NODE_SADDLE=0x00000005
 REPEL_NODE_SADDLE=0x00000006
 ATTRACT_FOCUS_SADDLE=0x00000007
@@ -245,6 +245,11 @@ class Critical_Points():
         elif((self.eigenValues[0]<0) and (self.eigenValues[2]<0) and (self.eigenValues[4]<0)):
             critical_type=SINK
 
+
+        # TODO:test:
+        # print(f"the critical type:{critical_type}     the pos:x={pos.x},y={pos.y},z={pos.z}")
+        print(f"1={np.abs(self.eigenValues[1])},3={np.abs(self.eigenValues[3])},5={np.abs(self.eigenValues[5])}")
+        ###########################################################
         if(critical_type==SOURCE):
             if((abs(self.eigenValues[1])<SMALLTHRESHOLD) and (abs(self.eigenValues[3])<SMALLTHRESHOLD) and (abs(self.eigenValues[5])<SMALLTHRESHOLD)):
                 critical_type=REPEL_NODE
@@ -252,9 +257,9 @@ class Critical_Points():
                 critical_type=REPEL_FOCUS
         elif(critical_type==REPEL_SADDLE):
             if((abs(self.eigenValues[1])<SMALLTHRESHOLD) and (abs(self.eigenValues[3])<SMALLTHRESHOLD) and (abs(self.eigenValues[5])<SMALLTHRESHOLD)):
-                critical_type=REPEL_NODE_SADDLE
+                critical_type=REPEL_NODE_SADDLE#6
             else:
-                critical_type=REPEL_FOCUS_SADDLE
+                critical_type=REPEL_FOCUS_SADDLE#8
         elif(critical_type==ATTRACT_SADDLE):
             if((abs(self.eigenValues[1])<SMALLTHRESHOLD) and (abs(self.eigenValues[3])<SMALLTHRESHOLD) and (abs(self.eigenValues[5])<SMALLTHRESHOLD)):
                 critical_type=ATTRACT_NODE_SADDLE
@@ -267,6 +272,10 @@ class Critical_Points():
                 critical_type=ATTRACT_FOCUS
         if((critical_type==None) and (self.eigenValues[3]!=0) and (abs(self.eigenValues[2])<SMALLTHRESHOLD)):
             critical_type=CENTER
+        
+        #TODO:test-->error occur: type=8(6), type=5
+        # print(f"the critical type:{critical_type}     the pos:x={pos.x},y={pos.y},z={pos.z}")
+        
         return critical_type
         
     def computeEigenValue3D(self,pos,timeID=0):
@@ -345,7 +354,8 @@ class Critical_Points():
         mat=np.array([[self.jacobMatrix[0],self.jacobMatrix[1],self.jacobMatrix[2]],
                       [self.jacobMatrix[3],self.jacobMatrix[4],self.jacobMatrix[5]],
                       [self.jacobMatrix[6],self.jacobMatrix[7],self.jacobMatrix[8]]])
-        es,_=np.linalg.eig(mat)
+        es=np.linalg.eigvals(mat)
+
         self.eigenValues[0]=es[0].real
         self.eigenValues[1]=es[0].imag
         self.eigenValues[2]=es[1].real
@@ -429,14 +439,14 @@ class Critical_Points():
                 repSaddleCount+=1
         
         #######################SHOW RESULT###########
-        print('\nthe detail info of the critical points:\n')
-        for index in range(self.pntNum):
-            self.criticalPoints[index].getValue()
-        # print(f"The total number of each type is:\nrepFocus:{repFocusCount+1}\nrepSpiralSaddle:{repSaddleCount+1}\nrepNode:{repNodeCount+1}\nattrNode{attrNodeCount+1}\nrepSaddle:{repSaddleCount+1}\n")
-        args=[('repFocus',repFocusCount,self.repFocus),('repSpiralSaddle',repSpiralSaddleCount,self.repSpiralSaddle),
-              ('repNode',repNodeCount,self.repNode),('attrNode',attrNodeCount,self.attrNode),('repSaddle',repSaddleCount,self.repSaddle)]
-        for arg in args:
-            self.show_result(*arg)
+        # print('\nthe detail info of the critical points:\n')
+        # for index in range(self.pntNum):
+        #     self.criticalPoints[index].getValue()
+        # # print(f"The total number of each type is:\nrepFocus:{repFocusCount+1}\nrepSpiralSaddle:{repSaddleCount+1}\nrepNode:{repNodeCount+1}\nattrNode{attrNodeCount+1}\nrepSaddle:{repSaddleCount+1}\n")
+        # args=[('repFocus',repFocusCount,self.repFocus),('repSpiralSaddle',repSpiralSaddleCount,self.repSpiralSaddle),
+        #       ('repNode',repNodeCount,self.repNode),('attrNode',attrNodeCount,self.attrNode),('repSaddle',repSaddleCount,self.repSaddle)]
+        # for arg in args:
+        #     self.show_result(*arg)
 
             
 ##################################################################################################################
