@@ -33,11 +33,15 @@ def addVect(vec1:Vec3D,vec2:Vec3D):
     resVec=Vec3D(vec1.x+vec2.x,vec1.y+vec2.y,vec1.z+vec2.z)
     return resVec
 
+def subtractVect(vec1:Vec3D,vec2:Vec3D):
+    res=Vec3D(vec1.x-vec2.x,vec1.y-vec2.y,vec1.z-vec2.z)
+    return res
 
+def cal_eigenvalue():
+    mat=np.array([[1,2*np.sqrt(3)+3j,3], [12,24,5],[-2,5,98]])
+    eigen,feature=np.linalg.eig(mat)
+    return eigen
 if __name__ == "__main__":
-    testV3D1=Vec3D(3,4,5)
-    testV3D2=Vec3D(1,1,1)
-    jMatrix=[[0 for i in range(3)] for j in range(125)]
-    
+    print(cal_eigenvalue()[1].imag)   
     
 

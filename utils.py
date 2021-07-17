@@ -7,15 +7,17 @@ from libs.myveccalculor import *
 import time
 import pickle
 from tqdm import tqdm
-
-
 import warnings
-warnings.filterwarnings("ignore")
+
 #####################################
-# This utils is made by Dull_Pigeon for
-# iSURE summer project.
+#  * @Description: critical points detection and classification module
+#  * @Author: Dai-ge
+#  * @Date: 2021-7-17
+#  * @LastEditors: Dai-ge
+#  * @LastEditTime: 2021-7-17
 ######Bacis Setting##################
 np.set_printoptions(threshold=np.inf)
+warnings.filterwarnings("ignore")
 GREENE_INTVL = 2
 GRID_INTVL = 0.05
 GREENE_DEGREE_THRESH = 0.00001
@@ -23,6 +25,24 @@ GREENE_SCALE_THRESH = 0.0001
 ALLCRITICALPOINTS_NUM=300
 
 SMALL_DIST_BOUNDARY=4
+
+SOURCE=0x00000010
+SINK=0x00000011
+ATTRACT_SADDLE=0x00000012
+REPEL_SADDLE=0x00000013
+ATTRACT_FOCUS=0x00000001
+REPEL_FOCUS=0x00000002
+ATTRACT_NODE=0x00000003
+REPEL_NODE=0x00000004
+ATTRACT_NODE_SADDLE=0x00000005
+REPEL_NODE_SADDLE=0x00000006
+ATTRACT_FOCUS_SADDLE=0x00000007
+REPEL_FOCUS_SADDLE=0x00000008
+CENTER=0x00000009
+
+SMALLTHRESHOLD=0.1
+
+MAXIMUM_EACH_TYPE=100
 #########Some Struct or Ref##########
 
 
@@ -40,6 +60,12 @@ class Critical_Points():
         self.criticalPoints = [Vec3D()]*ALLCRITICALPOINTS_NUM
         self.pntNum = 0
         self.poincateIndex = [0]*ALLCRITICALPOINTS_NUM
+        ############################
+        self.repFocus=[CRITICALPNT()]*MAXIMUM_EACH_TYPE
+        self.repSpiralSaddle=[CRITICALPNT()]*MAXIMUM_EACH_TYPE
+        self.repNode=[CRITICALPNT()]*MAXIMUM_EACH_TYPE
+        self.attrNode=[CRITICALPNT()]*MAXIMUM_EACH_TYPE
+        self.repSaddle=[CRITICALPNT()]*MAXIMUM_EACH_TYPE
         ############################
         self.compute_degree_idx = [[0, 1, 2], [1, 3, 2],  # front
                                    [1, 5, 3], [5, 7, 3],  # right
@@ -70,8 +96,12 @@ class Critical_Points():
                           Vec3D(-0.25,0.25,0.25),  #front-left-top 
                           Vec3D(0.25,-0.25,0.25),  #front-right-bottom
                           Vec3D(0.25,0.25,0.25)]  #front-right-top
-
+        ############################
+        self.jacobMatrix=[0]*9
+        self.eigenValues=[0]*6
+        ############################
         self.findCritpnts()
+        self.classifyCripnts()
 
     def init_points_data(self,datasize):
 
@@ -199,13 +229,130 @@ class Critical_Points():
     def getCritpntType3D(self,pos,poincateIndex,timeID=0):
         critical_type=None
         tempPos=Vec3D(pos.x,pos.y,pos.z)
-        #TODO:computeEigenValue3D
-        pass
+        self.computeEigenValue3D(pos=tempPos,timeID=timeID)
 
+        for i in range(0,5,2):
+            for j in range(i+2,5,2):
+                if(self.eigenValues[i]>self.eigenValues[j]):
+                    self.eigenValues[i],self.eigenValues[j]=self.eigenValues[j],self.eigenValues[i]
+
+        if ((self.eigenValues[0]>0) and (self.eigenValues[2]>0) and (self.eigenValues[4]>0)):
+            critical_type=SOURCE
+        elif((self.eigenValues[0]<0) and (self.eigenValues[2]>0) and (self.eigenValues[4]>0)):
+            critical_type=REPEL_SADDLE
+        elif((self.eigenValues[0]<0) and (self.eigenValues[2]<0) and (self.eigenValues[4]>0)):
+            critical_type=ATTRACT_SADDLE
+        elif((self.eigenValues[0]<0) and (self.eigenValues[2]<0) and (self.eigenValues[4]<0)):
+            critical_type=SINK
+
+        if(critical_type==SOURCE):
+            if((abs(self.eigenValues[1])<SMALLTHRESHOLD) and (abs(self.eigenValues[3])<SMALLTHRESHOLD) and (abs(self.eigenValues[5])<SMALLTHRESHOLD)):
+                critical_type=REPEL_NODE
+            else:
+                critical_type=REPEL_FOCUS
+        elif(critical_type==REPEL_SADDLE):
+            if((abs(self.eigenValues[1])<SMALLTHRESHOLD) and (abs(self.eigenValues[3])<SMALLTHRESHOLD) and (abs(self.eigenValues[5])<SMALLTHRESHOLD)):
+                critical_type=REPEL_NODE_SADDLE
+            else:
+                critical_type=REPEL_FOCUS_SADDLE
+        elif(critical_type==ATTRACT_SADDLE):
+            if((abs(self.eigenValues[1])<SMALLTHRESHOLD) and (abs(self.eigenValues[3])<SMALLTHRESHOLD) and (abs(self.eigenValues[5])<SMALLTHRESHOLD)):
+                critical_type=ATTRACT_NODE_SADDLE
+            else:
+                critical_type=ATTRACT_FOCUS_SADDLE
+        elif(critical_type==SINK):
+            if((abs(self.eigenValues[1])<SMALLTHRESHOLD) and (abs(self.eigenValues[3])<SMALLTHRESHOLD) and (abs(self.eigenValues[5])<SMALLTHRESHOLD)):
+                critical_type=ATTRACT_NODE
+            else:
+                critical_type=ATTRACT_FOCUS
+        if((critical_type==None) and (self.eigenValues[3]!=0) and (abs(self.eigenValues[2])<SMALLTHRESHOLD)):
+            critical_type=CENTER
+        return critical_type
+        
     def computeEigenValue3D(self,pos,timeID=0):
         jMatrix=[[Vec3D() for i in range(3)] for j in range(125)] #!注意这里维度的处理
         count=0
-        #TODO2:computeJacobianMatrix3D
+        jMatrix[0]=self.computeJacobianMatrix3D(pos=pos,timeID=0)
+        for i in range(1,3):
+            ########################################---left---######################################################
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y-i,pos.z-i),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y,pos.z-i),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y+i,pos.z-i),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y-i,pos.z),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y,pos.z),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y+i,pos.z),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y-i,pos.z+i),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y,pos.z+i),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y+i,pos.z+i),timeID=timeID)
+            count+=1
+            ########################################---right---######################################################
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y-i,pos.z-i),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y,pos.z-i),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y+i,pos.z-i),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y-i,pos.z),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y,pos.z),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y+i,pos.z),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y-i,pos.z+i),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y,pos.z+i),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y+i,pos.z+i),timeID=timeID)
+            count+=1
+            ########################################---top---###########################################################
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x,pos.y+i,pos.z-i),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x,pos.y+i,pos.z),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x,pos.y+i,pos.z+i),timeID=timeID)
+            count+=1
+            ########################################---bottom---######################################################
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x,pos.y-i,pos.z-i),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x,pos.y-i,pos.z),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x,pos.y-i,pos.z+i),timeID=timeID)
+            count+=1
+            ########################################---front and back---######################################################
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x,pos.y,pos.z-i),timeID=timeID)
+            count+=1
+            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x,pos.y,pos.z+i),timeID=timeID)
+            count+=1
+        
+        for j in range(3):
+            for i in range(1,count):
+                jMatrix[0][j].x=jMatrix[i][j].x
+                jMatrix[0][j].y=jMatrix[i][j].y
+                jMatrix[0][j].z=jMatrix[i][j].z
+        self.jacobMatrix[0],self.jacobMatrix[1],self.jacobMatrix[2]=jMatrix[0][0].x/count,jMatrix[0][1].x/count,jMatrix[0][2].x/count
+        self.jacobMatrix[3],self.jacobMatrix[4],self.jacobMatrix[5]=jMatrix[0][0].y/count,jMatrix[0][1].y/count,jMatrix[0][2].y/count
+        self.jacobMatrix[6],self.jacobMatrix[7],self.jacobMatrix[8]=jMatrix[0][0].z/count,jMatrix[0][1].z/count,jMatrix[0][2].z/count
+        
+        #TODO：numpy处理eigenvalue
+        mat=np.array([[self.jacobMatrix[0],self.jacobMatrix[1],self.jacobMatrix[2]],
+                      [self.jacobMatrix[3],self.jacobMatrix[4],self.jacobMatrix[5]],
+                      [self.jacobMatrix[6],self.jacobMatrix[7],self.jacobMatrix[8]]])
+        es,_=np.linalg.eig(mat)
+        self.eigenValues[0]=es[0].real
+        self.eigenValues[1]=es[0].imag
+        self.eigenValues[2]=es[1].real
+        self.eigenValues[3]=es[1].imag
+        self.eigenValues[4]=es[2].real
+        self.eigenValues[5]=es[2].imag
+
 
     def computeJacobianMatrix3D(self,pos,timeID=0):
         intx,inty,intz=int(pos.x),int(pos.y),int(pos.z)
@@ -222,24 +369,84 @@ class Critical_Points():
         v[7]=self.points_data[p+1+self.vfwidth+self.sizeSlice]
 
         return self.interpolateJacobianMatrix3D(v,Vec3D(fracx,fracy,fracz))
-        #TODO3: interpolateJacobianMatrix3D
+
 
     def interpolateJacobianMatrix3D(self,v,pos):
-        retJacob=Vec3D()#!: resJacob可能是一个公共变量
-
+        jacob=[Vec3D()]*3#!: Jacob可能是一个公共变量
+        pd=[Vec3D()]*12
+        pd[0]=subtractVect(v[1],v[0])
+        pd[1]=subtractVect(v[5],v[4])
+        pd[2]=subtractVect(v[3],v[2])
+        pd[3]=subtractVect(v[7],v[6])
+        pd[4]=subtractVect(v[2],v[0])
+        pd[5]=subtractVect(v[3],v[1])
+        pd[6]=subtractVect(v[6],v[4])
+        pd[7]=subtractVect(v[7],v[5])
+        pd[8]=subtractVect(v[4],v[0])
+        pd[9]=subtractVect(v[5],v[1])
+        pd[10]=subtractVect(v[6],v[2])
+        pd[11]=subtractVect(v[7],v[3])
+        
+        jacob[0]=self.linearInterpolation3dFromFour(pos.x,pos.y,pd[0],pd[2],pd[1],pd[4])
+        jacob[1]=self.linearInterpolation3dFromFour(pos.x,pos.y,pd[4],pd[6],pd[5],pd[7])
+        jacob[2]=self.linearInterpolation3dFromFour(pos.x,pos.y,pd[8],pd[10],pd[9],pd[11])
+        
+        return jacob
+    
+    def linearInterpolation3dFromFour(self,xfrac,yfrac,leftbottom,lefttop,rightbottom,righttop):
+        res=Vec3D()
+        res.x=(1-xfrac)*(1-yfrac)*leftbottom.x+xfrac*(1-yfrac)*rightbottom.x+(1-xfrac)*yfrac*lefttop.x+xfrac*yfrac*righttop.x
+        res.y=(1-xfrac)*(1-yfrac)*leftbottom.y+xfrac*(1-yfrac)*rightbottom.y+(1-xfrac)*yfrac*lefttop.y+xfrac*yfrac*righttop.y
+        res.z=(1-xfrac)*(1-yfrac)*leftbottom.z+xfrac*(1-yfrac)*rightbottom.z+(1-xfrac)*yfrac*lefttop.z+xfrac*yfrac*righttop.z
+        return res
+        
 
     def classifyCripnts(self,timeID=0):#TODO:ClassifyPoint书写
         
-        repFocusCount,repSpiralSaddleCount,reNodeCount,attrNodeCount,repSaddleCount=0,0,0,0,0
+        repFocusCount,repSpiralSaddleCount,repNodeCount,attrNodeCount,repSaddleCount=0,0,0,0,0
         for i in range(self.pntNum):
             pos1=Vec3D(self.criticalPoints[i].x,self.criticalPoints[i].y,self.criticalPoints[i].z)
             
             if ((abs(pos1.x-self.vfwidth)<SMALL_DIST_BOUNDARY) or (abs(pos1.x)<SMALL_DIST_BOUNDARY) or (abs(pos1.y)<SMALL_DIST_BOUNDARY) or (abs(pos1.y-self.vfheight)<SMALL_DIST_BOUNDARY) or (abs(pos1.z)<SMALL_DIST_BOUNDARY) or (abs(pos1.z-self.vfdepth)<SMALL_DIST_BOUNDARY)):
                 continue
 
-            critical_type=self.getCritpntType3D()#TODO:getCriticalType3D
+            critical_type=self.getCritpntType3D(pos=pos1,poincateIndex=self.poincateIndex[i],timeID=timeID)
+
+            if((critical_type==REPEL_FOCUS) or (critical_type==ATTRACT_FOCUS)):#TODO:这里可以用append优化
+                self.repFocus[repFocusCount].criticalPoint=pos1
+                repFocusCount+=1
+            elif((critical_type==REPEL_FOCUS_SADDLE) or (critical_type==ATTRACT_FOCUS_SADDLE)):
+                self.repSpiralSaddle[repSpiralSaddleCount].criticalPoint=pos1
+                repSpiralSaddleCount+=1
+            elif((critical_type==REPEL_NODE)):
+                self.repNode[repNodeCount].criticalPoint=pos1
+                repNodeCount+=1
+            elif((critical_type==ATTRACT_NODE)):
+                self.attrNode[attrNodeCount].criticalPoint=pos1
+                attrNodeCount+=1
+            elif((critical_type==REPEL_NODE_SADDLE) or (critical_type==ATTRACT_NODE_SADDLE)):
+                self.repSaddle[repSaddleCount].criticalPoint=pos1
+                repSaddleCount+=1
+        
+        # print(f"The total number of each type is:\nrepFocus:{repFocusCount+1}\nrepSpiralSaddle:{repSaddleCount+1}\nrepNode:{repNodeCount+1}\nattrNode{attrNodeCount+1}\nrepSaddle:{repSaddleCount+1}\n")
+        args=[('repFocus',repFocusCount,self.repFocus),('repSpiralSaddle',repSpiralSaddleCount,self.repSpiralSaddle),
+              ('repNode',repNodeCount,self.repNode),('attrNode',attrNodeCount,self.attrNode),('repSaddle',repSaddleCount,self.repSaddle)]
+        for arg in args:
+            self.show_result(*arg)
+
             
 ##################################################################################################################
+    def show_result(self,critical_type_name,critical_num,critical_data):
+        print('\n')
+        print(f'The total number of {critical_type_name} type is:{critical_num}')
+        if critical_num!=0:
+            print('the detail info of this type is shown below:')
+            for index in range(critical_num):
+                critical_data[index].show()
+        else:
+            print('The type of this critical points is zero!!!')
+        print('\n')
+        
     def _load_path(self, data_root_path='.\\Critical-Points-Utils\\vectordata'):  # !注意更改vec文件的目录
         """[summary]
         读取vectordata的数据

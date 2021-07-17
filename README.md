@@ -13,6 +13,6 @@ The aim of this project is to re-build a previous critical-points calculator by 
 待办
 - [x] points_data的处理
 - [x] findCriticalPoints测试
-- [ ] critical points分类部分
+- [x] critical points分类部分
 - [ ] critical points分类测试
 - [ ] 代码整理和优化
