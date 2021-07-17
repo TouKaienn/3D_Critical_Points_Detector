@@ -40,7 +40,7 @@ ATTRACT_FOCUS_SADDLE=0x00000007
 REPEL_FOCUS_SADDLE=0x00000008
 CENTER=0x00000009
 
-SMALLTHRESHOLD=0.1
+SMALLTHRESHOLD=0.001
 
 MAXIMUM_EACH_TYPE=100
 #########Some Struct or Ref##########
@@ -248,7 +248,7 @@ class Critical_Points():
 
         # TODO:test:
         # print(f"the critical type:{critical_type}     the pos:x={pos.x},y={pos.y},z={pos.z}")
-        print(f"1={np.abs(self.eigenValues[1])},3={np.abs(self.eigenValues[3])},5={np.abs(self.eigenValues[5])}")
+        # print(f"1={np.abs(self.eigenValues[1])},3={np.abs(self.eigenValues[3])},5={np.abs(self.eigenValues[5])}")
         ###########################################################
         if(critical_type==SOURCE):
             if((abs(self.eigenValues[1])<SMALLTHRESHOLD) and (abs(self.eigenValues[3])<SMALLTHRESHOLD) and (abs(self.eigenValues[5])<SMALLTHRESHOLD)):
@@ -274,7 +274,7 @@ class Critical_Points():
             critical_type=CENTER
         
         #TODO:test-->error occur: type=8(6), type=5
-        # print(f"the critical type:{critical_type}     the pos:x={pos.x},y={pos.y},z={pos.z}")
+        print(f"the critical type:{critical_type}     the pos:x={pos.x},y={pos.y},z={pos.z}")
         
         return critical_type
         
@@ -439,14 +439,14 @@ class Critical_Points():
                 repSaddleCount+=1
         
         #######################SHOW RESULT###########
-        # print('\nthe detail info of the critical points:\n')
-        # for index in range(self.pntNum):
-        #     self.criticalPoints[index].getValue()
-        # # print(f"The total number of each type is:\nrepFocus:{repFocusCount+1}\nrepSpiralSaddle:{repSaddleCount+1}\nrepNode:{repNodeCount+1}\nattrNode{attrNodeCount+1}\nrepSaddle:{repSaddleCount+1}\n")
-        # args=[('repFocus',repFocusCount,self.repFocus),('repSpiralSaddle',repSpiralSaddleCount,self.repSpiralSaddle),
-        #       ('repNode',repNodeCount,self.repNode),('attrNode',attrNodeCount,self.attrNode),('repSaddle',repSaddleCount,self.repSaddle)]
-        # for arg in args:
-        #     self.show_result(*arg)
+        print('\nthe detail info of the critical points:\n')
+        for index in range(self.pntNum):
+            self.criticalPoints[index].getValue()
+        # print(f"The total number of each type is:\nrepFocus:{repFocusCount+1}\nrepSpiralSaddle:{repSaddleCount+1}\nrepNode:{repNodeCount+1}\nattrNode{attrNodeCount+1}\nrepSaddle:{repSaddleCount+1}\n")
+        args=[('repFocus',repFocusCount,self.repFocus),('repSpiralSaddle',repSpiralSaddleCount,self.repSpiralSaddle),
+              ('repNode',repNodeCount,self.repNode),('attrNode',attrNodeCount,self.attrNode),('repSaddle',repSaddleCount,self.repSaddle)]
+        for arg in args:
+            self.show_result(*arg)
 
             
 ##################################################################################################################
