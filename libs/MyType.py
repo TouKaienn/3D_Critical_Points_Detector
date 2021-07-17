@@ -19,3 +19,8 @@ class Vec2D():
     def __init__(self,x=None,y=None):
         self.x,self.y=x,y
 
+if __name__ == "__main__":
+    a=[CRITICALPNT() for i in range(5)]
+    for i in a:
+        print(id(i.criticalPoint))
+

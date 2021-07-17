@@ -61,11 +61,11 @@ class Critical_Points():
         self.pntNum = 0
         self.poincateIndex = [0]*ALLCRITICALPOINTS_NUM
         ############################
-        self.repFocus=[CRITICALPNT()]*MAXIMUM_EACH_TYPE
-        self.repSpiralSaddle=[CRITICALPNT()]*MAXIMUM_EACH_TYPE
-        self.repNode=[CRITICALPNT()]*MAXIMUM_EACH_TYPE
-        self.attrNode=[CRITICALPNT()]*MAXIMUM_EACH_TYPE
-        self.repSaddle=[CRITICALPNT()]*MAXIMUM_EACH_TYPE
+        self.repFocus=[CRITICALPNT() for i in range(MAXIMUM_EACH_TYPE)]
+        self.repSpiralSaddle=[CRITICALPNT() for i in range(MAXIMUM_EACH_TYPE)]
+        self.repNode=[CRITICALPNT() for i in range(MAXIMUM_EACH_TYPE)]
+        self.attrNode=[CRITICALPNT() for i in range(MAXIMUM_EACH_TYPE)]
+        self.repSaddle=[CRITICALPNT() for i in range(MAXIMUM_EACH_TYPE)]
         ############################
         self.compute_degree_idx = [[0, 1, 2], [1, 3, 2],  # front
                                    [1, 5, 3], [5, 7, 3],  # right
@@ -428,6 +428,10 @@ class Critical_Points():
                 self.repSaddle[repSaddleCount].criticalPoint=pos1
                 repSaddleCount+=1
         
+        #######################SHOW RESULT###########
+        print('\nthe detail info of the critical points:\n')
+        for index in range(self.pntNum):
+            self.criticalPoints[index].getValue()
         # print(f"The total number of each type is:\nrepFocus:{repFocusCount+1}\nrepSpiralSaddle:{repSaddleCount+1}\nrepNode:{repNodeCount+1}\nattrNode{attrNodeCount+1}\nrepSaddle:{repSaddleCount+1}\n")
         args=[('repFocus',repFocusCount,self.repFocus),('repSpiralSaddle',repSpiralSaddleCount,self.repSpiralSaddle),
               ('repNode',repNodeCount,self.repNode),('attrNode',attrNodeCount,self.attrNode),('repSaddle',repSaddleCount,self.repSaddle)]
