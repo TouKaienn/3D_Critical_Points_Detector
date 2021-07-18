@@ -1,5 +1,6 @@
 # 3D_Critical_Points_Detector
 [![MIT License](https://img.shields.io/apm/l/atomic-design-ui.svg?)](https://github.com/tterb/atomic-design-ui/blob/master/LICENSEs)
+
 Critical Points Calculator Modules for 2021 ISURE Program
 
 The aim of this project is to re-build a previous critical-points calculator by Python. To check the previous project, you could look up the paper 《FlowVisual: A Visualization App for Teaching and Understanding 3D Flow Field Concepts》.
@@ -65,10 +66,41 @@ The critical points and its classification have been saved successfully.
 ```python
   cp.show_all_result()
 ```
-#### Reload the critical points detector
+
+## Two important objects
+
+**Vec3D**
+
 ```python
-  cp=load_cp_data(data_path='cp.pkl')
+  class Vec3D():
+    def __init__(self,x=0,y=0,z=0):
+        self.x,self.y,self.z=x,y,z
+    def getValue(self):
+        print(f"value of the Vec3D:x={self.x},y={self.y},z={self.z}")
 ```
-| Parameter | Type     | Description                |
-| :-------- | :------- | :------------------------- |
-| `data_path` | `string` | **Option**. the data path of the saved critical points detector, default='cp.pkl' |
+For the critical points detector, its attribute criticalPoints is a list consistent with Vec3D()
+```python
+  cp.criticalPoints = [Vec3D()]*ALLCRITICALPOINTS_NUM
+```
+**CRITICALPNT**
+```python
+  class CRITICALPNT():
+    def __init__(self):
+        self.critical_type=None
+        self.criticalPoint=Vec3D()
+
+        self.tmplateSeeds=[Vec3D()]*32
+        self.tmplateSeedsNum=None
+
+    def show(self):
+        print(f"this critical value is:x:{self.criticalPoint.x},y={self.criticalPoint.y},z={self.criticalPoint.z}.")
+```
+For the critical points detector, its attribute repFocus, repSpiralSaddle, repNode, attrNode and repSaddle is a list consistent with CRITICALPNT.
+
+```python
+  cp.repFocus=[CRITICALPNT() for i in range(MAXIMUM_EACH_TYPE)]
+  cp.repSpiralSaddle=[CRITICALPNT() for i in range(MAXIMUM_EACH_TYPE)]
+  cp.repNode=[CRITICALPNT() for i in range(MAXIMUM_EACH_TYPE)]
+  cp.attrNode=[CRITICALPNT() for i in range(MAXIMUM_EACH_TYPE)]
+  cp.repSaddle=[CRITICALPNT() for i in range(MAXIMUM_EACH_TYPE)]
+```
