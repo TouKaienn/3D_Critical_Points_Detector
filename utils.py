@@ -8,13 +8,13 @@ import time
 import pickle
 from tqdm import tqdm
 import warnings
-import scipy.linalg
+
 #####################################
 #  * @Description: critical points detection and classification module
 #  * @Author: Dai-ge
-#  * @Date: 2021-7-17
+#  * @Date: 2021-7-18
 #  * @LastEditors: Dai-ge
-#  * @LastEditTime: 2021-7-17
+#  * @LastEditTime: 2021-7-18
 ######Bacis Setting##################
 np.set_printoptions(threshold=np.inf)
 warnings.filterwarnings("ignore")
@@ -23,32 +23,28 @@ GRID_INTVL = 0.05
 GREENE_DEGREE_THRESH = 0.00001
 GREENE_SCALE_THRESH = 0.0001
 ALLCRITICALPOINTS_NUM=300
-
 SMALL_DIST_BOUNDARY=4
-
 SOURCE=0x00000010
 SINK=0x00000011
 ATTRACT_SADDLE=0x00000012
 REPEL_SADDLE=0x00000013
-ATTRACT_FOCUS=0x00000001#1
-REPEL_FOCUS=0x00000002#2
-ATTRACT_NODE=0x00000003#3
-REPEL_NODE=0x00000004#4
+ATTRACT_FOCUS=0x00000001
+REPEL_FOCUS=0x00000002
+ATTRACT_NODE=0x00000003
+REPEL_NODE=0x00000004
 ATTRACT_NODE_SADDLE=0x00000005
 REPEL_NODE_SADDLE=0x00000006
 ATTRACT_FOCUS_SADDLE=0x00000007
 REPEL_FOCUS_SADDLE=0x00000008
 CENTER=0x00000009
-
 SMALLTHRESHOLD=0.001
-
 MAXIMUM_EACH_TYPE=100
 #########Some Struct or Ref##########
 
 
 class Critical_Points():
-    def __init__(self, vfwidth=51, vfheight=51, vfdepth=51, vftime=1):
-        self.data_file_path = '.\\Critical-Points-Utils\\data\\5cp.vec'
+    def __init__(self, vfwidth=51, vfheight=51, vfdepth=51, vftime=1,data_file_path='.\\data\\5cp.vec'):
+        self.data_file_path = data_file_path
         self.points_data = self.init_points_data(datasize=100*100*20*48)
         self.vfwidth = vfwidth
         self.vfheight = vfheight
@@ -273,8 +269,7 @@ class Critical_Points():
         if((critical_type==None) and (self.eigenValues[3]!=0) and (abs(self.eigenValues[2])<SMALLTHRESHOLD)):
             critical_type=CENTER
         
-        #TODO:test-->error occur: type=8(6), type=5
-        print(f"the critical type:{critical_type}     the pos:x={pos.x},y={pos.y},z={pos.z}")
+        # print(f"the critical type:{critical_type}     the pos:x={pos.x},y={pos.y},z={pos.z}") #This code is just for debugging
         
         return critical_type
         
@@ -438,54 +433,48 @@ class Critical_Points():
                 self.repSaddle[repSaddleCount].criticalPoint=pos1
                 repSaddleCount+=1
         
-        #######################SHOW RESULT###########
-        print('\nthe detail info of the critical points:\n')
-        for index in range(self.pntNum):
-            self.criticalPoints[index].getValue()
-        # print(f"The total number of each type is:\nrepFocus:{repFocusCount+1}\nrepSpiralSaddle:{repSaddleCount+1}\nrepNode:{repNodeCount+1}\nattrNode{attrNodeCount+1}\nrepSaddle:{repSaddleCount+1}\n")
-        args=[('repFocus',repFocusCount,self.repFocus),('repSpiralSaddle',repSpiralSaddleCount,self.repSpiralSaddle),
+        self.show_result_args=[('repFocus',repFocusCount,self.repFocus),('repSpiralSaddle',repSpiralSaddleCount,self.repSpiralSaddle),
               ('repNode',repNodeCount,self.repNode),('attrNode',attrNodeCount,self.attrNode),('repSaddle',repSaddleCount,self.repSaddle)]
-        for arg in args:
-            self.show_result(*arg)
+        
 
             
 ##################################################################################################################
-    def show_result(self,critical_type_name,critical_num,critical_data):
-        print('\n')
-        print(f'The total number of {critical_type_name} type is:{critical_num}')
-        if critical_num!=0:
-            print('the detail info of this type is shown below:')
-            for index in range(critical_num):
-                critical_data[index].show()
-        else:
-            print('The type of this critical points is zero!!!')
-        print('\n')
-        
-    def _load_path(self, data_root_path='.\\Critical-Points-Utils\\vectordata'):  # !注意更改vec文件的目录
-        """[summary]
-        读取vectordata的数据
-        Args:
-            data_root_path (str, optional): vectordata的数据路径. Defaults to '.\\Critical-Points-Utils\\vectordata'.
+    def show_all_result(self):
+        #####################Function Define#########################
+        def show_result(critical_type_name,critical_num,critical_data):
+            print('\n')
+            print(f'The total number of {critical_type_name} type is:{critical_num}')
+            if critical_num!=0:
+                print('the detail info of this type is shown below:')
+                for index in range(critical_num):
+                    critical_data[index].show()
+            else:
+                print('The type of this critical points is zero!!!')
+            print('\n')
+        #######################SHOW RESULT############################
+        print('\nthe detail info of the critical points:\n')
+        for index in range(self.pntNum):
+            self.criticalPoints[index].getValue()
+        for arg in self.show_result_args:
+            show_result(*arg)
 
-        Returns:
-            files_path: 列表，其中包含vectordata的所有绝对地址
-        """
-        files= os.listdir(data_root_path)
-        files_path= []
-        for file in files:
-            files_path.append(os.path.join(data_root_path, file))
-        return files_path
+
+def load_cp_data(data_path='cp.pkl'):  # !注意更改vec文件的目录
+    with open(data_path,'rb') as f:
+        cp=pickle.load(f)
+    return cp
 
 def save_cp(cp,file_name='cp.pkl'):
     with open(file_name,'wb') as f:
         pickle.dump(cp,f)
+    print('The critical points and its classification have been saved successfully.')
     
 if __name__ == "__main__":
-    start_time=time.time()
-    cp= Critical_Points()
-    end_time=time.time()    
-    print(f'time_consuming:{(end_time-start_time)/60}min')
-
-
-
-
+    # start_time=time.time()
+    # cp= Critical_Points()
+    # end_time=time.time()
+    # print(f'time_consuming:{(end_time-start_time)}s')
+    # save_cp(cp)
+    
+    cp=load_cp_data()    
+    cp.show_all_result()
