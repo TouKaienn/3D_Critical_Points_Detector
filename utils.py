@@ -8,7 +8,7 @@ import time
 import pickle
 from tqdm import tqdm
 import warnings
-
+import pandas as pd
 #####################################
 #  * @Description: critical points detection and classification module
 #  * @Author: Dai-ge
@@ -16,13 +16,14 @@ import warnings
 #  * @LastEditors: Dai-ge
 #  * @LastEditTime: 2021-7-18
 ######Bacis Setting##################
-np.set_printoptions(threshold=np.inf)
+# np.set_printoptions(threshold=np.inf)
 warnings.filterwarnings("ignore")
+DO_YOU_HAVE_A_BIG_RAM=False
 GREENE_INTVL = 2
 GRID_INTVL = 0.05
 GREENE_DEGREE_THRESH = 0.00001
 GREENE_SCALE_THRESH = 0.0001
-ALLCRITICALPOINTS_NUM=300
+ALLCRITICALPOINTS_NUM=10000
 SMALL_DIST_BOUNDARY=4
 SOURCE=0x00000010
 SINK=0x00000011
@@ -38,14 +39,16 @@ ATTRACT_FOCUS_SADDLE=0x00000007
 REPEL_FOCUS_SADDLE=0x00000008
 CENTER=0x00000009
 SMALLTHRESHOLD=0.001
-MAXIMUM_EACH_TYPE=100
+MAXIMUM_EACH_TYPE=10000
 #########Some Struct or Ref##########
 
-
+###TODO:Flow Field的维度十分重要
 class Critical_Points():
-    def __init__(self, vfwidth=51, vfheight=51, vfdepth=51, vftime=1,data_file_path='.\\data\\5cp.vec'):
+    def __init__(self,name,vfwidth=51, vfheight=51, vfdepth=51, vftime=1,data_file_path='.\\data\\half-cylinder105.vec',datasize=80*600*300*100,steady=True,load_again=False):
+        self.cp_name=name
+        self.load_again=load_again
         self.data_file_path = data_file_path
-        self.points_data = self.init_points_data(datasize=100*100*20*48)
+        self.data_path = self.init_points_data_path(datasize=datasize)
         self.vfwidth = vfwidth
         self.vfheight = vfheight
         self.vfdepth = vfdepth
@@ -53,9 +56,12 @@ class Critical_Points():
         self.sizeCube = self.vfwidth*self.vfheight*self.vfdepth
         self.sizeSlice = self.vfwidth*self.vfheight
         ############################
-        self.criticalPoints = [Vec3D()]*ALLCRITICALPOINTS_NUM
+        if DO_YOU_HAVE_A_BIG_RAM==True:
+            self.init_points_data()
+        ############################
+        self.criticalPoints = []
         self.pntNum = 0
-        self.poincateIndex = [0]*ALLCRITICALPOINTS_NUM
+        self.poincateIndex = []
         ############################
         self.repFocus=[CRITICALPNT() for i in range(MAXIMUM_EACH_TYPE)]
         self.repSpiralSaddle=[CRITICALPNT() for i in range(MAXIMUM_EACH_TYPE)]
@@ -96,59 +102,105 @@ class Critical_Points():
         self.jacobMatrix=[0]*9
         self.eigenValues=[0]*6
         ############################
-        self.findCritpnts()
-        self.classifyCripnts()
+        for time in range(self.vftime):
+            print(f"The TimeID is: {time}")
+            self.findCritpnts(timeID=time)
+            self.classifyCripnts(timeID=time)
 
-    def init_points_data(self,datasize):
+    def init_points_data(self):
+        self.points_data=[]
+        data=pd.read_csv(self.data_path,names=['x','y','z'])
+        for item in tqdm(zip(data['x'],data['y'],data['z'])):
+            self.points_data.append(Vec3D(*item))
+        print("Data saved in buffer successfully!")
 
-        data=np.fromfile(self.data_file_path, dtype='<f')
-        res=[Vec3D(0,0,0)]*datasize
-        buffer=[]
+    def init_points_data_path(self,datasize):
 
-        print('Data Loading:')
-        count=0
-        for item in tqdm(data):
-            buffer.append(item)
-
-            if len(buffer)==3:
-                res[count]=Vec3D(buffer[0],buffer[1],buffer[2])
-                count+=1
-                buffer=[]
-
-        return res
-
-    def findCritpnts(self, timeID=0):
-        v = [0]*8
-
-
-        print("\nData Processing:")
-
-        for i in tqdm(range(self.vfdepth-1)):
-            for j in range(self.vfheight-1):
-                for k in range(self.vfwidth-1):
-                    p = i*self.sizeSlice+j*self.vfwidth+k+timeID*self.sizeCube
-
-
-                    v[0] = self.points_data[p]
-                    v[1] = self.points_data[p+GREENE_INTVL]
-                    v[2] = self.points_data[p+self.vfwidth]
-                    v[3] = self.points_data[p+self.vfwidth+GREENE_INTVL]
-                    v[4] = self.points_data[p+self.sizeSlice]
-                    v[5] = self.points_data[p+self.sizeSlice+GREENE_INTVL]
-                    v[6] = self.points_data[p+self.vfwidth+self.sizeSlice]
-                    v[7] = self.points_data[p+self.vfwidth +
-                                            GREENE_INTVL+self.sizeSlice]
+        data_path=self.data_file_path[:-3]+'csv'
+        if not os.path.exists(data_path) or self.load_again:
+            data=np.fromfile(self.data_file_path, dtype='<f')
+            data_ls=data.tolist()
+            length_data_ls=len(data_ls)
+            print('Data Loading:')
+            with open(data_path,'w') as f:
+                line=[]
+                for item in tqdm(data_ls):
+                    line.append(str(item))
+                    if len(line)==3:
+                        f.write(",".join(line)+'\n')
+                        line=[]
+                if length_data_ls<datasize:
+                    print('Data Complementing:')
+                    for j in tqdm(range(datasize-length_data_ls)):
+                        if j%3==0:
+                            f.write('0,0,0\n')
+        else:
+            print("The data is exist in local machine.")
+        return data_path
                     
-                    # TODO: greene's method
+        # self.data=pd.read_csv(data_path,names=['x','y','z'])
+        
+    def findCritpnts(self, timeID):
+        v = [0]*8
+        
+        if not DO_YOU_HAVE_A_BIG_RAM:
+            print("\nData Processing:(Space Saving)")
+            points_data=pd.read_csv(self.data_path,names=['x','y','z'])
+            for i in tqdm(range(self.vfdepth-1)):
+                for j in range(self.vfheight-1):
+                    for k in range(self.vfwidth-1):
 
-                    degree = self.computeDegree(v)
+                        p = i*self.sizeSlice+j*self.vfwidth+k+timeID*self.sizeCube
+
+                        v[0] = Vec3D(points_data.iloc[p].x,points_data.iloc[p].y,points_data.iloc[p].z)
+                        v[1] = Vec3D(points_data.iloc[p+GREENE_INTVL].x,points_data.iloc[p+GREENE_INTVL].y,points_data.iloc[p+GREENE_INTVL].z)
+                        v[2] = Vec3D(points_data.iloc[p+self.vfwidth].x,points_data.iloc[p+self.vfwidth].y,points_data.iloc[p+self.vfwidth].z)
+                        v[3] = Vec3D(points_data.iloc[p+self.vfwidth+GREENE_INTVL].x,points_data.iloc[p+self.vfwidth+GREENE_INTVL].y,points_data.iloc[p+self.vfwidth+GREENE_INTVL].z)
+                        v[4] = Vec3D(points_data.iloc[p+self.sizeSlice].x,points_data.iloc[p+self.sizeSlice].y,points_data.iloc[p+self.sizeSlice].z)
+                        v[5] = Vec3D(points_data.iloc[p+self.sizeSlice+GREENE_INTVL].x,points_data.iloc[p+self.sizeSlice+GREENE_INTVL].y,points_data.iloc[p+self.sizeSlice+GREENE_INTVL].z)
+                        v[6] = Vec3D(points_data.iloc[p+self.vfwidth+self.sizeSlice].x,points_data.iloc[p+self.vfwidth+self.sizeSlice].y,points_data.iloc[p+self.vfwidth+self.sizeSlice].z)
+                        v[7] = Vec3D(points_data.iloc[p+self.vfwidth+GREENE_INTVL+self.sizeSlice].x,points_data.iloc[p+self.vfwidth+GREENE_INTVL+self.sizeSlice].y,points_data.iloc[p+self.vfwidth+GREENE_INTVL+self.sizeSlice].z)
+                        
+
+                        # TODO: greene's method
+
+                        degree = self.computeDegree(v)
 
 
-                    if(abs(degree) > GREENE_DEGREE_THRESH):
+                        if(abs(degree) > GREENE_DEGREE_THRESH):
 
-                        pos = Vec3D(k+0.5, j+0.5, i+0.5)
-                        self.locatePoint(v, pos=pos, scale=1.0, retArray=self.criticalPoints,
-                                         retNum=self.pntNum, poincateIndex=self.poincateIndex)
+                            pos = Vec3D(k+0.5, j+0.5, i+0.5)
+                            self.locatePoint(v, pos=pos, scale=1.0, retArray=self.criticalPoints,
+                                            retNum=self.pntNum, poincateIndex=self.poincateIndex)
+            points_data=None
+        else:
+            print("\nData Processing:(Time Saving)")
+            for i in tqdm(range(self.vfdepth-1)):
+                for j in range(self.vfheight-1):
+                    for k in range(self.vfwidth-1):
+                        p = i*self.sizeSlice+j*self.vfwidth+k+timeID*self.sizeCube
+
+                        v[0] = self.points_data[p]
+                        v[1] = self.points_data[p+GREENE_INTVL]
+                        v[2] = self.points_data[p+self.vfwidth]
+                        v[3] = self.points_data[p+self.vfwidth+GREENE_INTVL]
+                        v[4] = self.points_data[p+self.sizeSlice]
+                        v[5] = self.points_data[p+self.sizeSlice+GREENE_INTVL]
+                        v[6] = self.points_data[p+self.vfwidth+self.sizeSlice]
+                        v[7] = self.points_data[p+self.vfwidth +
+                                                GREENE_INTVL+self.sizeSlice]
+                        
+                        # TODO: greene's method
+
+                        degree = self.computeDegree(v)
+
+
+                        if(abs(degree) > GREENE_DEGREE_THRESH):
+
+                            pos = Vec3D(k+0.5, j+0.5, i+0.5)
+                            self.locatePoint(v, pos=pos, scale=1.0, retArray=self.criticalPoints,
+                                            retNum=self.pntNum, poincateIndex=self.poincateIndex)
+
 
     def computeDegree(self, v: List):  # ! 注意参数是一个len=8的Vec3D列表
         if(((v[0].x >= -GRID_INTVL) or (v[1].x >= -GRID_INTVL) or ( v[2].x >= -GRID_INTVL) or (v[3].x >= -GRID_INTVL) or (v[4].x >= -GRID_INTVL) or (v[5].x >= -GRID_INTVL) or (v[6].x >= -GRID_INTVL) or (v[7].x >= -GRID_INTVL)) and
@@ -194,7 +246,7 @@ class Critical_Points():
 
     def locatePoint(self, v, pos, scale, retArray, retNum, poincateIndex):
         if(scale <= GREENE_SCALE_THRESH):
-            self.criticalPoints[self.pntNum] = pos
+            self.criticalPoints.append(pos)
             self.pntNum+= 1
             return True
 
@@ -218,7 +270,7 @@ class Critical_Points():
 
             if (abs(degree)>GREENE_DEGREE_THRESH):
                 if (self.locatePoint(sub,pos=addVect(pos,scaleVect(self.subcell_pos[i],scale)),scale=subScale,retArray=self.criticalPoints,retNum=self.pntNum,poincateIndex=self.poincateIndex)):
-                    self.poincateIndex[self.pntNum-1]=1 if (degree>GREENE_DEGREE_THRESH) else -1
+                    self.poincateIndex.append(1 if (degree>GREENE_DEGREE_THRESH) else -1)
                     return True
         return False
 ################################################################################################################
@@ -276,66 +328,67 @@ class Critical_Points():
     def computeEigenValue3D(self,pos,timeID=0):
         jMatrix=[[Vec3D() for i in range(3)] for j in range(125)] #!注意这里维度的处理
         count=0
-        jMatrix[0]=self.computeJacobianMatrix3D(pos=pos,timeID=0)
+        points_data=pd.read_csv(self.data_path,names=['x','y','z']) if not DO_YOU_HAVE_A_BIG_RAM else None
+        jMatrix[0]=self.computeJacobianMatrix3D(points_data,pos=pos,timeID=0)
         for i in range(1,3):
             ########################################---left---######################################################
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y-i,pos.z-i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x-i,pos.y-i,pos.z-i),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y,pos.z-i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x-i,pos.y,pos.z-i),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y+i,pos.z-i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x-i,pos.y+i,pos.z-i),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y-i,pos.z),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x-i,pos.y-i,pos.z),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y,pos.z),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x-i,pos.y,pos.z),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y+i,pos.z),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x-i,pos.y+i,pos.z),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y-i,pos.z+i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x-i,pos.y-i,pos.z+i),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y,pos.z+i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x-i,pos.y,pos.z+i),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x-i,pos.y+i,pos.z+i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x-i,pos.y+i,pos.z+i),timeID=timeID)
             count+=1
             ########################################---right---######################################################
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y-i,pos.z-i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x+i,pos.y-i,pos.z-i),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y,pos.z-i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x+i,pos.y,pos.z-i),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y+i,pos.z-i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x+i,pos.y+i,pos.z-i),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y-i,pos.z),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x+i,pos.y-i,pos.z),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y,pos.z),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x+i,pos.y,pos.z),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y+i,pos.z),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x+i,pos.y+i,pos.z),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y-i,pos.z+i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x+i,pos.y-i,pos.z+i),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y,pos.z+i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x+i,pos.y,pos.z+i),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x+i,pos.y+i,pos.z+i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x+i,pos.y+i,pos.z+i),timeID=timeID)
             count+=1
             ########################################---top---###########################################################
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x,pos.y+i,pos.z-i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x,pos.y+i,pos.z-i),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x,pos.y+i,pos.z),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x,pos.y+i,pos.z),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x,pos.y+i,pos.z+i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x,pos.y+i,pos.z+i),timeID=timeID)
             count+=1
             ########################################---bottom---######################################################
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x,pos.y-i,pos.z-i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x,pos.y-i,pos.z-i),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x,pos.y-i,pos.z),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x,pos.y-i,pos.z),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x,pos.y-i,pos.z+i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x,pos.y-i,pos.z+i),timeID=timeID)
             count+=1
             ########################################---front and back---######################################################
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x,pos.y,pos.z-i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x,pos.y,pos.z-i),timeID=timeID)
             count+=1
-            jMatrix[count]=self.computeJacobianMatrix3D(pos=Vec3D(pos.x,pos.y,pos.z+i),timeID=timeID)
+            jMatrix[count]=self.computeJacobianMatrix3D(points_data,pos=Vec3D(pos.x,pos.y,pos.z+i),timeID=timeID)
             count+=1
-        
+        points_data=None
         for j in range(3):
             for i in range(1,count):
                 jMatrix[0][j].x=jMatrix[i][j].x
@@ -359,21 +412,39 @@ class Critical_Points():
         self.eigenValues[5]=es[2].imag
 
 
-    def computeJacobianMatrix3D(self,pos,timeID=0):
-        intx,inty,intz=int(pos.x),int(pos.y),int(pos.z)
-        fracx,fracy,fracz=pos.x-intx,pos.y-inty,pos.z-intz
-        v=[Vec3D()]*8
-        p=timeID*self.sizeCube+intz*self.sizeSlice+inty*self.vfwidth+intx
-        v[0]=self.points_data[p]
-        v[1]=self.points_data[p+1]
-        v[2]=self.points_data[p+self.vfwidth]
-        v[3]=self.points_data[p+1+self.vfwidth]
-        v[4]=self.points_data[p+self.sizeSlice]
-        v[5]=self.points_data[p+1+self.sizeSlice]
-        v[6]=self.points_data[p+self.vfwidth+self.sizeSlice]
-        v[7]=self.points_data[p+1+self.vfwidth+self.sizeSlice]
+    def computeJacobianMatrix3D(self,points_data,pos,timeID=0):
+        if not DO_YOU_HAVE_A_BIG_RAM:
+            intx,inty,intz=int(pos.x),int(pos.y),int(pos.z)
+            fracx,fracy,fracz=pos.x-intx,pos.y-inty,pos.z-intz
+            v=[Vec3D()]*8
+            p=timeID*self.sizeCube+intz*self.sizeSlice+inty*self.vfwidth+intx
+            
+            v[0]=Vec3D(points_data.iloc[p].x,points_data.iloc[p].y,points_data.iloc[p].z)
+            v[1]=Vec3D(points_data.iloc[p+1].x,points_data.iloc[p+1].y,points_data.iloc[p+1].z)
+            v[2]=Vec3D(points_data.iloc[p+self.vfwidth].x,points_data.iloc[p+self.vfwidth].y,points_data.iloc[p+self.vfwidth].z)
+            v[3]=Vec3D(points_data.iloc[p+1+self.vfwidth].x,points_data.iloc[p+1+self.vfwidth].y,points_data.iloc[p+1+self.vfwidth].z)
+            v[4]=Vec3D(points_data.iloc[p+self.sizeSlice].x,points_data.iloc[p+self.sizeSlice].y,points_data.iloc[p+self.sizeSlice].z)
+            v[5]=Vec3D(points_data.iloc[p+1+self.sizeSlice].x,points_data.iloc[p+1+self.sizeSlice].y,points_data.iloc[p+1+self.sizeSlice].z)
+            v[6]=Vec3D(points_data.iloc[p+self.vfwidth+self.sizeSlice].x,points_data.iloc[p+self.vfwidth+self.sizeSlice].y,points_data.iloc[p+self.vfwidth+self.sizeSlice].z)
+            v[7]=Vec3D(points_data.iloc[p+1+self.vfwidth+self.sizeSlice].x,points_data.iloc[p+1+self.vfwidth+self.sizeSlice].y,points_data.iloc[p+1+self.vfwidth+self.sizeSlice].z)
+            points_data=None
+            return self.interpolateJacobianMatrix3D(v,Vec3D(fracx,fracy,fracz))
 
-        return self.interpolateJacobianMatrix3D(v,Vec3D(fracx,fracy,fracz))
+        else:
+            intx,inty,intz=int(pos.x),int(pos.y),int(pos.z)
+            fracx,fracy,fracz=pos.x-intx,pos.y-inty,pos.z-intz
+            v=[Vec3D()]*8
+            p=timeID*self.sizeCube+intz*self.sizeSlice+inty*self.vfwidth+intx
+            v[0]=self.points_data[p]
+            v[1]=self.points_data[p+1]
+            v[2]=self.points_data[p+self.vfwidth]
+            v[3]=self.points_data[p+1+self.vfwidth]
+            v[4]=self.points_data[p+self.sizeSlice]
+            v[5]=self.points_data[p+1+self.sizeSlice]
+            v[6]=self.points_data[p+self.vfwidth+self.sizeSlice]
+            v[7]=self.points_data[p+1+self.vfwidth+self.sizeSlice]
+
+            return self.interpolateJacobianMatrix3D(v,Vec3D(fracx,fracy,fracz))
 
 
     def interpolateJacobianMatrix3D(self,v,pos):
@@ -406,7 +477,7 @@ class Critical_Points():
         return res
         
 
-    def classifyCripnts(self,timeID=0):#TODO:ClassifyPoint书写
+    def classifyCripnts(self,timeID):#TODO:ClassifyPoint书写
         
         repFocusCount,repSpiralSaddleCount,repNodeCount,attrNodeCount,repSaddleCount=0,0,0,0,0
         for i in range(self.pntNum):
@@ -436,8 +507,6 @@ class Critical_Points():
         self.show_result_args=[('repFocus',repFocusCount,self.repFocus),('repSpiralSaddle',repSpiralSaddleCount,self.repSpiralSaddle),
               ('repNode',repNodeCount,self.repNode),('attrNode',attrNodeCount,self.attrNode),('repSaddle',repSaddleCount,self.repSaddle)]
         
-
-            
 ##################################################################################################################
     def show_all_result(self):
         #####################Function Define#########################
@@ -470,11 +539,17 @@ def save_cp(cp,file_name='cp.pkl'):
     print('The critical points and its classification have been saved successfully.')
     
 if __name__ == "__main__":
-    # start_time=time.time()
-    # cp= Critical_Points()
-    # end_time=time.time()
-    # print(f'time_consuming:{(end_time-start_time)}s')
-    # save_cp(cp)
-    
-    cp=load_cp_data()    
+    args=[('5cp',51,51,51,1,'.\\data\\5cp.vec'),('tornado17',128,128,128,3,'.\\data\\tornado17.vec'),('tangaroa157',300,180,120,3,'.\\data\\tangaroa157.vec'),('supernova015',128,128,128,3,'.\\data\\supernova015.vec'),('supercurrent-450',256,128,32,3,'.\\data\\supercurrent-450.vec'),('half-cylinder105',640,240,80,3,'.\\data\\half-cylinder105.vec')]
+
+    start_time=time.time()
+    # data=pd.read_csv('.\\data\\tornado17.csv',names=['x','y','z'])
+    # for row in data.iterrows():
+    #     print(row)
+    cp= Critical_Points(*args[2])
+    end_time=time.time()
+    print(f"time consuming:{end_time-start_time}s")
+
     cp.show_all_result()
+    save_cp(cp,f'{cp.cp_name}.pkl')
+    # cp=load_cp_data()    
+    # cp.show_all_result()
