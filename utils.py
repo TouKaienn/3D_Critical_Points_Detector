@@ -10,7 +10,7 @@ from tqdm import tqdm
 import warnings
 import pandas as pd
 from decimal import *
-import math
+import copy
 #####################################
 #  * @Description: critical points detection and classification module
 #  * @Author: Dai-ge
@@ -42,6 +42,7 @@ REPEL_FOCUS_SADDLE=0x00000008
 CENTER=0x00000009
 SMALLTHRESHOLD=0.1#In the Objective-C code, Here is SMALLTHRESHOLD=0.1
 MAXIMUM_EACH_TYPE=1000
+CRIT_GROUP_THRESHHOLD=5
 #########Some Struct or Ref##########
 
 ###TODO:Flow Field的维度十分重要
@@ -122,12 +123,8 @@ class Critical_Points():
             if len(buffer)%3==0:
                 self.points_data.append(Vec3D(*buffer))
                 buffer=[]
-        for i in range(10):
+        for i in range(1000):
             self.points_data.append(Vec3D(0.0,0.0,0.0))
-        
-        
-
-
 
     def init_points_data(self):
         self.point_data=[]
@@ -369,9 +366,9 @@ class Critical_Points():
         if((critical_type==None) and (self.eigenValues[3]!=0) and (abs(self.eigenValues[2])<SMALLTHRESHOLD)):
             critical_type=CENTER
         
-        print(f"the value of the type:{critical_type}     the pos:x={pos.x},y={pos.y},z={pos.z}") #This code is just for debugging
-        for index,item in enumerate(self.eigenValues):
-            print(f"With eigen value e[{index}]:{item}")
+        # print(f"the value of the type:{critical_type}     the pos:x={pos.x},y={pos.y},z={pos.z}") #This code is just for debugging
+        # for index,item in enumerate(self.eigenValues):
+        #     print(f"With eigen value e[{index}]:{item}")
         return critical_type
         
     def computeEigenValue3D(self,pos,timeID):
@@ -380,7 +377,7 @@ class Critical_Points():
         points_data=pd.read_csv(self.data_path,names=['x','y','z']) if not self.time_saving else None
         jMatrix[0]=self.computeJacobianMatrix3D(points_data,pos=pos,timeID=timeID)#TODO:THIS FUNC DO NOT HAVE ANY PROBLEM
 
-        print(f'jMatrix[0] x:{jMatrix[0][0].x}, y:{jMatrix[0][0].y}, z:{jMatrix[0][0].z}')#TODO:TEST
+        # print(f'jMatrix[0] x:{jMatrix[0][0].x}, y:{jMatrix[0][0].y}, z:{jMatrix[0][0].z}')#TODO:TEST
 
         for i in range(1,3):
             ########################################---left---######################################################
@@ -450,7 +447,7 @@ class Critical_Points():
         self.jacobMatrix[3],self.jacobMatrix[4],self.jacobMatrix[5]=jMatrix[0][0].y/count,jMatrix[0][1].y/count,jMatrix[0][2].y/count
         self.jacobMatrix[6],self.jacobMatrix[7],self.jacobMatrix[8]=jMatrix[0][0].z/count,jMatrix[0][1].z/count,jMatrix[0][2].z/count
         
-        # for index,item in enumerate(self.jacobMatrix):#TEST #!有问题
+        # for index,item in enumerate(self.jacobMatrix):#TEST
         #     print(f'the value for {index} jacobMatrix is {item}')
 
         #TODO：numpy处理eigenvalue
@@ -503,8 +500,6 @@ class Critical_Points():
             v[5]=self.points_data[p+1+self.sizeSlice]
             v[6]=self.points_data[p+self.vfwidth+self.sizeSlice]
             v[7]=self.points_data[p+1+self.vfwidth+self.sizeSlice]
-
-
             return self.interpolateJacobianMatrix3D(v,Vec3D(fracx,fracy,fracz))
 
 
@@ -564,10 +559,76 @@ class Critical_Points():
             elif((critical_type==REPEL_NODE_SADDLE) or (critical_type==ATTRACT_NODE_SADDLE)):
                 self.repSaddle[repSaddleCount].criticalPoint=pos1
                 repSaddleCount+=1
+        self.repFocus,repFocusCount=self.groupCritpnts(self.repFocus,repFocusCount,timeID)
+        self.repSpiralSaddle,repSpiralSaddleCount=self.groupCritpnts(self.repSpiralSaddle,repSpiralSaddleCount,timeID)
+        self.repNode,repNodeCount=self.groupCritpnts(self.repNode,repNodeCount,timeID)
+        self.attrNode,attrNodeCount=self.groupCritpnts(self.attrNode,attrNodeCount,timeID)
+        self.repSaddle,repSaddleCount=self.groupCritpnts(self.repSaddle,repSaddleCount,timeID)
+        
         
         self.show_result_args=[('repFocus',repFocusCount,self.repFocus),('repSpiralSaddle',repSpiralSaddleCount,self.repSpiralSaddle),
               ('repNode',repNodeCount,self.repNode),('attrNode',attrNodeCount,self.attrNode),('repSaddle',repSaddleCount,self.repSaddle)]
         
+    def groupCritpnts(self,onetypeCritpnt,onetypeCritNum,timeID):
+        tempStorage=[[Vec3D(1e4,1e4,1e4) for i in range(300)] for j in range(300)]
+        tempCount=0
+        tempCount2=2
+
+        tempStorage[0][1]=copy.deepcopy(onetypeCritpnt[0].criticalPoint)
+
+        for i in range(onetypeCritNum):
+            if (onetypeCritpnt[i].criticalPoint.x!=-100):
+
+                tempStorage[tempCount][1]=copy.deepcopy(onetypeCritpnt[i].criticalPoint)
+                tempCount2=2
+
+                for j in range(i+1,onetypeCritNum):
+                    if(getDist2Point3D(onetypeCritpnt[i].criticalPoint,onetypeCritpnt[j].criticalPoint)<CRIT_GROUP_THRESHHOLD):
+                        tempStorage[tempCount][tempCount2]=copy.deepcopy(onetypeCritpnt[j].criticalPoint)
+                        onetypeCritpnt[j].criticalPoint.x=-100
+                        onetypeCritpnt[j].criticalPoint.y=-100
+                        onetypeCritpnt[j].criticalPoint.z=-100
+                        tempCount2+=1
+
+                tempStorage[tempCount][0].x=tempCount2
+                tempCount+=1
+    
+        # for i in range(30):
+        #     for j in range(30):
+        #         print(f"x:{tempStorage[i][j].x},y:{tempStorage[i][j].y},z:{tempStorage[i][j].z},i:{i},j:{j}")
+        
+        onetypeCritNum=0
+        v=[Vec3D() for i in range(9)]
+        for i in range(tempCount):
+            minimalVelo=10000
+            minimalPoint=Vec3D()
+            for j in range(1,tempStorage[i][0].x):
+                velo=Vec3D()
+                pos=tempStorage[i][j]
+                p=int(tempStorage[i][j].z)*self.sizeSlice+int(tempStorage[i][j].y)*self.vfwidth+(int(tempStorage[i][j].x))+timeID*self.sizeCube
+
+                v[0]=self.points_data[p]
+                v[1]=self.points_data[p+GREENE_INTVL]
+                v[2]=self.points_data[p+self.vfwidth]
+                v[3]=self.points_data[p+self.vfwidth+GREENE_INTVL]
+                v[4]=self.points_data[p+self.sizeSlice]
+                v[5]=self.points_data[p+GREENE_INTVL+self.sizeSlice]
+                v[6]=self.points_data[p+self.vfwidth+self.sizeSlice]
+                v[7]=self.points_data[p+GREENE_INTVL+self.vfwidth+self.sizeSlice]
+
+                xfrac=pos.x-int(pos.x)
+                yfrac=pos.y-int(pos.y)
+                zfrac=pos.z-int(pos.z)
+
+                velo=linearInterpolation3dMoreFrac(xfrac,yfrac,zfrac,v[0],v[2],v[1],v[3],v[4],v[6],v[5],v[7],1.0)
+                length=getVecLength3D(velo)
+                if(length<minimalVelo):
+                    minimalVelo=length
+                    minimalPoint=pos
+            onetypeCritpnt[onetypeCritNum].criticalPoint=minimalPoint
+            onetypeCritNum+=1
+        return onetypeCritpnt,onetypeCritNum
+
 ##################################################################################################################
     def show_all_result(self):
         #####################Function Define#########################
