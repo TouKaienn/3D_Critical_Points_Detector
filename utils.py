@@ -44,7 +44,7 @@ MAXIMUM_EACH_TYPE=2000
 CRIT_GROUP_THRESHHOLD=5
 #########Some Struct or Ref##########
 class Critical_Points():
-    def __init__(self,name,vfwidth=51, vfheight=51, vfdepth=51, vftime=1,data_file_path='.\\data\\half-cylinder105.vec'):
+    def __init__(self,name,vfwidth=51, vfheight=51, vfdepth=51, vftime=1,data_file_path='.\\data\\half-cylinder105.vec',show_result=True):
         self.cp_name=name
         self.data_file_path = data_file_path
         self.vfwidth = vfwidth
@@ -53,6 +53,7 @@ class Critical_Points():
         self.vftime = vftime
         self.sizeCube = self.vfwidth*self.vfheight*self.vfdepth
         self.sizeSlice = self.vfwidth*self.vfheight
+        self.show_result_args=[]
         ############################
         self.init_points_data_directly()
         ############################
@@ -103,6 +104,7 @@ class Critical_Points():
             print(f"The TimeID is: {time}")
             self.findCritpnts(timeID=time)
             self.classifyCripnts(timeID=time)
+        if show_result:
             self.show_all_result()
 
     def init_points_data_directly(self):
@@ -430,22 +432,18 @@ class Critical_Points():
         self.attrNode,attrNodeCount=self.groupCritpnts(self.attrNode,attrNodeCount,timeID)
         self.repSaddle,repSaddleCount=self.groupCritpnts(self.repSaddle,repSaddleCount,timeID)
         
-        self.show_result_args=[('repFocus',repFocusCount,self.repFocus),('repSpiralSaddle',repSpiralSaddleCount,self.repSpiralSaddle),
-              ('repNode',repNodeCount,self.repNode),('attrNode',attrNodeCount,self.attrNode),('repSaddle',repSaddleCount,self.repSaddle)]
+        self.show_result_args.append(copy.deepcopy([timeID,self.pntNum,self.criticalPoints,('repFocus',repFocusCount,self.repFocus),('repSpiralSaddle',repSpiralSaddleCount,self.repSpiralSaddle),
+              ('repNode',repNodeCount,self.repNode),('attrNode',attrNodeCount,self.attrNode),('repSaddle',repSaddleCount,self.repSaddle)]))
         
     def groupCritpnts(self,onetypeCritpnt,onetypeCritNum,timeID):
         tempStorage=[[Vec3D(1e4,1e4,1e4) for i in range(1000)] for j in range(1000)]#!Hope it will not exceed 1000 elements
         tempCount=0
         tempCount2=2
-
         tempStorage[0][1]=copy.deepcopy(onetypeCritpnt[0].criticalPoint)
-
         for i in range(onetypeCritNum):
             if (onetypeCritpnt[i].criticalPoint.x!=-100):
-
                 tempStorage[tempCount][1]=copy.deepcopy(onetypeCritpnt[i].criticalPoint)
                 tempCount2=2
-
                 for j in range(i+1,onetypeCritNum):
                     if(getDist2Point3D(onetypeCritpnt[i].criticalPoint,onetypeCritpnt[j].criticalPoint)<CRIT_GROUP_THRESHHOLD):
                         tempStorage[tempCount][tempCount2]=copy.deepcopy(onetypeCritpnt[j].criticalPoint)
@@ -453,7 +451,6 @@ class Critical_Points():
                         onetypeCritpnt[j].criticalPoint.y=-100
                         onetypeCritpnt[j].criticalPoint.z=-100
                         tempCount2+=1
-
                 tempStorage[tempCount][0].x=tempCount2
                 tempCount+=1
         
@@ -503,33 +500,35 @@ class Critical_Points():
                 print('The type of this critical points is zero!!!')
             print('\n')
         #######################SHOW RESULT############################
-        print(f'\nthe detail info of the critical points from {self.cp_name}({self.pntNum} in total):\n')
-        for index in range(self.pntNum):
-            self.criticalPoints[index].getValue()
-        for arg in self.show_result_args:
-            show_result(*arg)
+        for current_time_arg in self.show_result_args:
+            current_timeID=current_time_arg[0]
+            current_pntNum=current_time_arg[1]
+            current_criticalPoints=current_time_arg[2]
+            print(f'TimeID:{current_timeID}')
+            print(f'\nthe detail info of the critical points from {self.cp_name}({current_pntNum} in total):\n')
+            for index in range(self.pntNum):
+                current_criticalPoints[index].getValue()
+            for arg in current_time_arg[3:]:
+                show_result(*arg)
 
-    def show_all_critical_points(self):
-        print(f'\nthe detail info of the critical points from {self.cp_name}({self.pntNum} in total):\n')
-        for index in range(self.pntNum):
-            self.criticalPoints[index].getValue()
 
-
-def load_cp_data(data_path):
-    with open(data_path,'rb') as f:
-        cp=pickle.load(f)
-        cp.show_all_result()
-        return cp
-
-def save_cp(cp,file_name='cp.pkl'):
-    with open(file_name,'wb') as f:
-        pickle.dump(cp,f)
-    print('The critical points and its classification have been saved successfully.')
-    
 if __name__ == "__main__":
-    args=[('5cp',51,51,51,1,'.\\data\\5cp.vec'),('tornado17',128,128,128,1,'.\\data\\tornado17.vec'),('tangaroa157',300,180,120,1,'.\\data\\tangaroa157.vec'),('supernova015',128,128,128,1,'.\\data\\supernova015.vec'),('supercurrent-450',256,128,32,1,'.\\data\\supercurrent-450.vec'),('half-cylinder105',640,240,80,1,'.\\data\\half-cylinder105.vec'),('high_36',500,500,100,1,'.\\data\\high_36.vec')]
+    def load_cp_data(data_path):
+        with open(data_path,'rb') as f:
+            cp=pickle.load(f)
+            cp.show_all_result()
+            return cp
 
+    def save_cp(cp,file_name='cp.pkl'):
+        with open(file_name,'wb') as f:
+            pickle.dump(cp,f)
+        print('The critical points and its classification have been saved successfully.')
+#! Pay attention to the dataset path and suffix name (high_36.vec)
+#-----------Test------------#
+    args=[('5cp',51,51,51,1,'.\\data\\5cp.vec'),('tornado17',128,128,128,1,'.\\data\\tornado17.vec'),('tangaroa157',300,180,120,1,'.\\data\\tangaroa157.vec'),('supernova015',128,128,128,1,'.\\data\\supernova015.vec'),('supercurrent-450',256,128,32,1,'.\\data\\supercurrent-450.vec'),('half-cylinder105',640,240,80,1,'.\\data\\half-cylinder105.vec'),('high_36',500,500,100,1,'.\\data\\high_36.vec')]
     start_time=time.time()
-    cp= Critical_Points(*args[0])
+    cp= Critical_Points(*args[0])#!Change here to choose which dataset is used
     end_time=time.time()
+    save_cp(cp)
     print(f"time consuming:{end_time-start_time}s")
+
