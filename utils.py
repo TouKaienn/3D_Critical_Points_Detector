@@ -41,11 +41,10 @@ ATTRACT_FOCUS_SADDLE=0x00000007
 REPEL_FOCUS_SADDLE=0x00000008
 CENTER=0x00000009
 SMALLTHRESHOLD=0.1#In the Objective-C code, Here is SMALLTHRESHOLD=0.1
-MAXIMUM_EACH_TYPE=1000
+MAXIMUM_EACH_TYPE=2000
 CRIT_GROUP_THRESHHOLD=5
 #########Some Struct or Ref##########
 
-###TODO:Flow Field的维度十分重要
 class Critical_Points():
     def __init__(self,name,vfwidth=51, vfheight=51, vfdepth=51, vftime=1,data_file_path='.\\data\\half-cylinder105.vec',Time_Saving=True,load_again=False):
         self.cp_name=name
@@ -57,7 +56,7 @@ class Critical_Points():
         self.vftime = vftime
         self.sizeCube = self.vfwidth*self.vfheight*self.vfdepth
         self.sizeSlice = self.vfwidth*self.vfheight
-        self.data_path = self.init_points_data_path(datasize=self.vftime*self.sizeCube*3+100,load_again=load_again)
+        # self.data_path = self.init_points_data_path(datasize=self.vftime*self.sizeCube*3+100,load_again=load_again)
         # self.res=[]
         ############################
         if self.time_saving==True:
@@ -132,14 +131,6 @@ class Critical_Points():
         for item in tqdm(zip(data['x'],data['y'],data['z'])):
             self.point_data.append(Vec3D(*item))
 
-        # cnt=0
-        # for item in self.point_data:
-        #     print(item.x,item.y,item.z)
-        #     cnt+=1
-        #     if cnt==10:
-        #         break
-        # print(f"dimension of data:{len(self.points_data)}")
-        # print("Data saved in buffer successfully!")
 
     def init_points_data_path(self,datasize,load_again):
 
@@ -188,13 +179,7 @@ class Critical_Points():
                         v[6] = Vec3D(points_data.iloc[p+self.vfwidth+self.sizeSlice].x,points_data.iloc[p+self.vfwidth+self.sizeSlice].y,points_data.iloc[p+self.vfwidth+self.sizeSlice].z)
                         v[7] = Vec3D(points_data.iloc[p+self.vfwidth+GREENE_INTVL+self.sizeSlice].x,points_data.iloc[p+self.vfwidth+GREENE_INTVL+self.sizeSlice].y,points_data.iloc[p+self.vfwidth+GREENE_INTVL+self.sizeSlice].z)
                         
-
-                        # TODO: greene's method
-
                         degree = self.computeDegree(v)
-
-                        # self.res.append(p+self.vfwidth +
-                                                # GREENE_INTVL+self.sizeSlice)#TODO:DELETE
 
                         if(abs(degree) > GREENE_DEGREE_THRESH):
                             
@@ -222,7 +207,7 @@ class Critical_Points():
                         v[7] = self.points_data[p+self.vfwidth +
                                                 GREENE_INTVL+self.sizeSlice]
 
-                        # TODO: greene's method
+
                         iteration+=1
                         degree = self.computeDegree(v,p)
 
@@ -230,8 +215,6 @@ class Critical_Points():
                             with open('degree_log.txt','a') as f:
                                 f.write(f"degree value at {p} is {degree} with v[0].x value:{v[0].x}\n")
 
-                        # with open('all_degree.txt','a+') as file:
-                        #     file.write(f"degree:{degree} k:{k},j:{j},i:{i}\n")
 
                         if(abs(degree) > GREENE_DEGREE_THRESH):
                             pos = Vec3D(k+0.5, j+0.5, i+0.5)
@@ -243,7 +226,7 @@ class Critical_Points():
                                             retNum=self.pntNum, poincateIndex=self.poincateIndex)
 
 
-    def computeDegree(self, v: List,p):  # ! 注意参数是一个len=8的Vec3D列表
+    def computeDegree(self, v: List,p):
         if(((v[0].x >= -GRID_INTVL) or (v[1].x >= -GRID_INTVL) or ( v[2].x >= -GRID_INTVL) or (v[3].x >= -GRID_INTVL) or (v[4].x >= -GRID_INTVL) or (v[5].x >= -GRID_INTVL) or (v[6].x >= -GRID_INTVL) or (v[7].x >= -GRID_INTVL)) and
            ((v[0].x <= GRID_INTVL) or (v[1].x <= GRID_INTVL) or (v[2].x <= GRID_INTVL) or (v[3].x <= GRID_INTVL) or (v[4].x <= GRID_INTVL) or (v[5].x <= GRID_INTVL) or (v[6].x <= GRID_INTVL) or (v[7].x <= GRID_INTVL)) and
            ((v[0].y >= -GRID_INTVL) or (v[1].y >= -GRID_INTVL) or (v[2].y >= -GRID_INTVL) or (v[3].y >= -GRID_INTVL) or (v[4].y >= -GRID_INTVL) or (v[5].y >= -GRID_INTVL) or (v[6].y >= -GRID_INTVL) or (v[7].y >= -GRID_INTVL)) and
@@ -258,7 +241,7 @@ class Critical_Points():
                 tri[0] = v[self.compute_degree_idx[i][0]]
                 tri[1] = v[self.compute_degree_idx[i][1]]
                 tri[2] = v[self.compute_degree_idx[i][2]]
-                tmp_ls.append(self.computeSolidAngle(tri,p))#!这里出现了问题，正确答案应该是-0.00033（已修复）
+                tmp_ls.append(self.computeSolidAngle(tri,p))
 
             a = sum(tmp_ls)/12.56637061 # 4pi
 
@@ -282,8 +265,6 @@ class Critical_Points():
         a = np.arctan(np.sqrt(t))*4
         if(vectDot(v[0], vectCross(v[1], v[2])) < 0):
             a = -a
-        # if p==313518:
-        #     print(f"t1:{t1},t2:{t2},t3:{t3},t{t},a{a}")
         
         with open('dev_log.txt','a') as f:
             f.write(str(a)+'\n')
@@ -339,10 +320,6 @@ class Critical_Points():
             critical_type=SINK
 
 
-        # TODO:test:
-        # print(f"the value of the type:{critical_type}  with   the pos:x={pos.x},y={pos.y},z={pos.z}")
-        # print(f"1={np.abs(self.eigenValues[1])},3={np.abs(self.eigenValues[3])},5={np.abs(self.eigenValues[5])}")
-        ###########################################################
         if(critical_type==SOURCE):
             if((abs(self.eigenValues[1])<SMALLTHRESHOLD) and (abs(self.eigenValues[3])<SMALLTHRESHOLD) and (abs(self.eigenValues[5])<SMALLTHRESHOLD)):
                 critical_type=REPEL_NODE
@@ -372,12 +349,11 @@ class Critical_Points():
         return critical_type
         
     def computeEigenValue3D(self,pos,timeID):
-        jMatrix=[[Vec3D() for i in range(3)] for j in range(125)] #!注意这里维度的处理
+        jMatrix=[[Vec3D() for i in range(3)] for j in range(125)] 
         count=0
         points_data=pd.read_csv(self.data_path,names=['x','y','z']) if not self.time_saving else None
-        jMatrix[0]=self.computeJacobianMatrix3D(points_data,pos=pos,timeID=timeID)#TODO:THIS FUNC DO NOT HAVE ANY PROBLEM
+        jMatrix[0]=self.computeJacobianMatrix3D(points_data,pos=pos,timeID=timeID)
 
-        # print(f'jMatrix[0] x:{jMatrix[0][0].x}, y:{jMatrix[0][0].y}, z:{jMatrix[0][0].z}')#TODO:TEST
 
         for i in range(1,3):
             ########################################---left---######################################################
@@ -450,7 +426,7 @@ class Critical_Points():
         # for index,item in enumerate(self.jacobMatrix):#TEST
         #     print(f'the value for {index} jacobMatrix is {item}')
 
-        #TODO：numpy处理eigenvalue
+
         mat=np.array([[self.jacobMatrix[0],self.jacobMatrix[1],self.jacobMatrix[2]],
                       [self.jacobMatrix[3],self.jacobMatrix[4],self.jacobMatrix[5]],
                       [self.jacobMatrix[6],self.jacobMatrix[7],self.jacobMatrix[8]]])
@@ -533,7 +509,7 @@ class Critical_Points():
         return res
         
 
-    def classifyCripnts(self,timeID):#TODO:ClassifyPoint书写
+    def classifyCripnts(self,timeID):
         
         repFocusCount,repSpiralSaddleCount,repNodeCount,attrNodeCount,repSaddleCount=0,0,0,0,0
         for i in range(self.pntNum):
@@ -544,7 +520,7 @@ class Critical_Points():
 
             critical_type=self.getCritpntType3D(pos=pos1,poincateIndex=self.poincateIndex[i],timeID=timeID)
 
-            if((critical_type==REPEL_FOCUS) or (critical_type==ATTRACT_FOCUS)):#TODO:这里可以用append优化
+            if((critical_type==REPEL_FOCUS) or (critical_type==ATTRACT_FOCUS)):
                 self.repFocus[repFocusCount].criticalPoint=pos1
                 repFocusCount+=1
             elif((critical_type==REPEL_FOCUS_SADDLE) or (critical_type==ATTRACT_FOCUS_SADDLE)):
@@ -570,7 +546,7 @@ class Critical_Points():
               ('repNode',repNodeCount,self.repNode),('attrNode',attrNodeCount,self.attrNode),('repSaddle',repSaddleCount,self.repSaddle)]
         
     def groupCritpnts(self,onetypeCritpnt,onetypeCritNum,timeID):
-        tempStorage=[[Vec3D(1e4,1e4,1e4) for i in range(300)] for j in range(300)]
+        tempStorage=[[Vec3D(1e4,1e4,1e4) for i in range(1000)] for j in range(1000)]
         tempCount=0
         tempCount2=2
 
@@ -658,7 +634,7 @@ class Critical_Points():
 def load_cp_data(data_path):  # !注意更改vec文件的目录
     with open(data_path,'rb') as f:
         cp=pickle.load(f)
-        # cp.show_all_result()
+        cp.show_all_result()
         return cp
 
 def save_cp(cp,file_name='cp.pkl'):
@@ -667,29 +643,27 @@ def save_cp(cp,file_name='cp.pkl'):
     print('The critical points and its classification have been saved successfully.')
     
 if __name__ == "__main__":
-    args=[('5cp',51,51,51,1,'.\\data\\5cp.vec'),('tornado17',128,128,128,1,'.\\data\\tornado17.vec'),('tangaroa157',300,180,120,1,'.\\data\\tangaroa157.vec'),('supernova015',128,128,128,1,'.\\data\\supernova015.vec'),('supercurrent-450',256,128,32,1,'.\\data\\supercurrent-450.vec'),('half-cylinder105',640,240,80,1,'.\\data\\half-cylinder105.vec')]
-    data=np.fromfile('.\\data\\5cp.vec',dtype='<f')
+    args=[('5cp',51,51,51,1,'.\\data\\5cp.vec'),('tornado17',128,128,128,1,'.\\data\\tornado17.vec'),('tangaroa157',300,180,120,1,'.\\data\\tangaroa157.vec'),('supernova015',128,128,128,1,'.\\data\\supernova015.vec'),('supercurrent-450',256,128,32,1,'.\\data\\supercurrent-450.vec'),('half-cylinder105',640,240,80,1,'.\\data\\half-cylinder105.vec'),('high_36',500,500,100,1,'.\\data\\high_36.vec')]
 
     # data=pd.read_csv('.\\data\\tornado17.csv',names=['x','y','z'])
     # for row in data.iterrows():
     #     print(row)
     # for i in range(len(args)):
 
-    try:
-        os.remove('degree.txt')
-        os.remove('dev_log.txt')
-        os.remove('all_degree.txt')
-        os.remove('degree_log.txt')
-    except:
-        pass
-    
-    start_time=time.time()
-    cp= Critical_Points(*args[-2])
-    cp.show_all_result()
-    
-    save_cp(cp,f'{cp.cp_name}.pkl')
-    end_time=time.time()
-    print(f"time consuming:{end_time-start_time}s")
+    for i in range(6):
+        try:
+            os.remove('degree.txt')
+            os.remove('dev_log.txt')
+            os.remove('all_degree.txt')
+            os.remove('degree_log.txt')
+        except:
+            pass
 
-    cp=load_cp_data('supercurrent-450.pkl')
-    print(cp.criticalPoints[0].x)
+        start_time=time.time()
+        cp= Critical_Points(*args[i])
+        cp.show_all_result()
+        
+        save_cp(cp,f'{cp.cp_name}.pkl')
+        end_time=time.time()
+        print(f"time consuming:{end_time-start_time}s")
+
