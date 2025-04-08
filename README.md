@@ -1,10 +1,6 @@
 # 3D_Critical_Points_Detector
-[![MIT License](https://img.shields.io/apm/l/atomic-design-ui.svg?)](https://github.com/tterb/atomic-design-ui/blob/master/LICENSEs)
 
-Critical Points Calculator Modules for 2021 ISURE Program
-
-The aim of this project is to re-build a previous critical-points calculator by Python. To check the previous project, you could look up the paper 《FlowVisual: A Visualization App for Teaching and Understanding 3D Flow Field Concepts》.
-
+Critical Points Calculator Modules for detecting and analysing different types of critical points in the flow field. 
 
 
 
